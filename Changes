@@ -1,8 +1,13 @@
 Revision history for Data-PrefixMerge
 
-0.01    2009-03-29
-        First release
+0.03    2009-06-12
+        - incompatible change: '*' prefix on the left now means normal merge
+          mode (to protect hash keys having special characters). keep mode now
+          uses '!' on the left side.
+        - add config: preserve_prefix (default is 0)
 
 0.02    2009-03-30
         Rename Data-RecMerge to Data-PrefixMerge
 
+0.01    2009-03-29
+        First release

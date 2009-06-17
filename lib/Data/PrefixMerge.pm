@@ -13,11 +13,11 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 
 =head1 SYNOPSIS
@@ -58,40 +58,41 @@ other merge modules.
 
 =head1 MERGING MODES
 
-=head2 NORMAL (no prefix)
+=head2 NORMAL (optional '*' prefix on left/right side)
 
- prefix_merge({a=>11, b=>12}, {b=>22, c=>23}); # {a=>11, b=>22, c=>23}
+ prefix_merge({ a=>11, b=>12},  {b=>22, c=>23}); # {a=>11, b=>22, c=>23}
+ prefix_merge({*a=>11, b=>12}, {*b=>22, c=>23}); # {a=>11, b=>22, c=>23}
 
-=head2 ADD ('+' prefix)
+=head2 ADD ('+' prefix on the right side)
 
  prefix_merge({i=>3}, {"+i"=>4, "+j"=>1}); # {i=>7, j=>1}
  prefix_merge({a=>[1]}, {"+a"=>[2, 3]}); # {a=>[1, 2, 3]}
 
 Additive merge on hashes will be treated like a normal merge.
 
-=head2 CONCAT ('.' prefix)
+=head2 CONCAT ('.' prefix on the right side)
 
  prefix_merge({i=>3}, {".i"=>4, ".j"=>1}); # {i=>34, j=>1}
 
 Concative merge on arrays will be treated like additive merge.
 
-=head2 SUBTRACT ('-' prefix)
+=head2 SUBTRACT ('-' prefix on the right side)
 
  prefix_merge({i=>3}, {"-i"=>4}); # {i=>-1}
  prefix_merge({a=>["a","b","c"]}, {"-a"=>["b"]}); # {a=>["a","c"]}
 
 Subtractive merge on hashes is not defined.
 
-=head2 DELETE ('.' prefix)
+=head2 DELETE ('!' prefix on the right side)
 
  prefix_merge({x=>WHATEVER}, {"!x"=>WHATEVER}); # {}
 
-=head2 KEEP ('*' prefix on the left side)
+=head2 KEEP ('!' prefix on the left side)
 
-If you add '*' prefix on the left side, it will be protected from
-being replaced.
+If you add '!' prefix on the left side, it will be protected from
+being replaced/deleted/etc.
 
- prefix_merge({'*x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
+ prefix_merge({'!x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
 
 =head2
 
@@ -146,6 +147,7 @@ sub BUILD {
             parse_hash_key_prefix => 1,
             wanted_path => undef,
             default_merge_mode => 'NORMAL',
+            preserve_prefix => 0,
 
             # unimplemented
             #parse_hash_option_key => 1, # XXX or event
@@ -252,13 +254,19 @@ sub merge_HASH_HASH_NORMAL {
             $a cmp $b
         };
         for (sort $sortsub keys %$a) {
-            if (/^\*(.+)/) {
-                if (exists($a->{$1})) {
-                    $self->error("Key conflict in left side: $1 and *$1");
+            if (/^\!(.+)/) {
+                if (exists($a->{$1}) || exists($a->{"*$1"})) {
+                    $self->error("Key conflict in left side: $_ and $1/*$1");
+                    return;
+                }
+                push @ka, [$_, ($config->{preserve_prefix} ? $_ : $1)];
+            } elsif (/^\*(.+)/) {
+                if (exists($a->{$1}) || exists($a->{"!$1"})) {
+                    $self->error("Key conflict in left side: $_ and $1/!$1");
                     return;
                 }
                 push @ka, [$_, $1];
-            } elsif (/^([+!.-])(.+)/) {
+            } elsif (/^([+.-])(.+)/) {
                 $self->error("Left side must not have prefix $1: $2");
                 return;
             } else {
@@ -267,7 +275,7 @@ sub merge_HASH_HASH_NORMAL {
         }
         for (sort $sortsub keys %$b) {
             if (/^([*+!.-])(.+)/) {
-                next if $a->{"*$2"};
+                next if $a->{"!$2"};
                 my $m = ($1 eq '*' ? 'NORMAL' :
                          $1 eq '+' ? 'ADD' :
                          $1 eq '.' ? 'CONCAT' :
@@ -275,7 +283,7 @@ sub merge_HASH_HASH_NORMAL {
                          'DELETE');
                 push @kb, [$_, $2, $m];
             } else {
-                next if $a->{"*$_"};
+                next if $a->{"!$_"};
                 push @kb, [$_, $_, $config->{default_merge_mode}];
             }
         }
@@ -513,6 +521,20 @@ When setting default_merge_mode to NORMAL (DEFAULT):
 When setting default_merge_mode to ADD:
 
  prefix_merge(3, 4); # 7
+
+=head2 preserve_prefix => 0|1
+
+Default it 0.
+
+If set to 1, then merge prefixes on hash keys on the left is kept (not
+stripped). Currently only '*' prefix on the left side is known. This is useful
+if the merge result is to be merged again and we still want to preserve the left
+side.
+
+Example:
+
+ prefix_merge({'*a'=>1}, {a=>2}); # {a=>1}
+ prefix_merge({'*a'=>1}, {a=>2}, {preserve_prefix=>1}); # {'*a'=>1}
 
 =head1 SEE ALSO
 

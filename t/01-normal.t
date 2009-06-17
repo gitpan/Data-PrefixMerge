@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 25;
+use Test::More tests => 26;
 
 use lib './t';
 require 'testlib.pm';
@@ -29,7 +29,7 @@ $dm->config->{recurse_array} = 1;
 merge_is([{a=>1}], [{b=>2}], [{a=>1, b=>2}], 'recursive array 1', $dm);
 
 merge_is({a=>11, b=>12}, {b=>22, c=>23}, {a=>11, b=>22, c=>23}, 'hash 1a');
-merge_is({a=>11, b=>12}, {'*b'=>22, '*c'=>23}, {a=>11, b=>22, c=>23}, 'hash 1b');
+merge_is({a=>11, b=>12}, {'*b'=>22, '*c'=>23}, {a=>11, b=>22, c=>23}, 'hash 1b (normal prefix on the right)');
 merge_is({a=>1}, undef, undef, 'hash 2');
 merge_is(undef, {a=>1}, {a=>1}, 'hash 3');
 merge_is({a=>1}, [], [], 'hash 4');
@@ -51,3 +51,5 @@ merge_is({h=>{h=>{i=>1, j=>1}}},
 # order of merge if multiple oprations are specified
 merge_is({a=>3}, {"-a"=>7, "+a"=>12}, {a=>8}, 'order: - before + 1');
 merge_is({a=>[1,2,3]}, {"-a"=>[1], "+a"=>[1]}, {a=>[2,3,1]}, 'order: - before + 2');
+
+merge_is({'*a'=>1}, {a=>2}, {a=>2}, 'normal prefix on the left');
