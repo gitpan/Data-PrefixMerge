@@ -13,11 +13,11 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 
 =head1 SYNOPSIS
@@ -170,6 +170,8 @@ elements from the original hash/array.
 sub merge {
     my ($self, $a, $b) = @_;
 
+    #print "merge()\n";
+
     $self->path([]);
     $self->error('');
     my ($res, $backup) = $self->_merge($a, $b, $self->config->{default_merge_mode});
@@ -185,6 +187,8 @@ sub merge {
 sub _merge {
     my ($self, $a, $b, $mode) = @_;
     my $config = $self->config;
+
+    #use Data::Dumper; $Data::Dumper::Indent=0; $Data::Dumper::Terse=1; print "_merge(".Dumper($a).", ".Dumper($b).", $mode)\n";
 
     # determine which merge methods we will call
     my (@meth, @ta, @tb);
@@ -239,7 +243,7 @@ sub merge_ANY_ANY_NORMAL {
 }
 
 sub merge_HASH_HASH_NORMAL {
-    my ($self, $a, $b) = @_;
+    my ($self, $a, $b, $assume_left_keep) = @_;
     my $config = $self->config;
     return merge_ANY_ANY_NORMAL(@_) unless $config->{recurse_hash};
     return if $config->{wanted_path} && !_path_is_included($self->path, $config->{wanted_path});
@@ -250,6 +254,7 @@ sub merge_HASH_HASH_NORMAL {
             (($b =~ /^\*/) <=> ($a =~ /^\*/)) ||
             (($b =~ /^-/) <=> ($a =~ /^-/)) ||
             (($b =~ /^\+/) <=> ($a =~ /^\+/)) ||
+            (($b =~ /^\./) <=> ($a =~ /^\./)) ||
             (($b =~ /^!/) <=> ($a =~ /^!/)) ||
             $a cmp $b
         };
@@ -275,7 +280,7 @@ sub merge_HASH_HASH_NORMAL {
         }
         for (sort $sortsub keys %$b) {
             if (/^([*+!.-])(.+)/) {
-                next if $a->{"!$2"};
+                next if exists($a->{"!$2"}) or ($assume_left_keep && exists($a->{$2}));
                 my $m = ($1 eq '*' ? 'NORMAL' :
                          $1 eq '+' ? 'ADD' :
                          $1 eq '.' ? 'CONCAT' :
@@ -283,7 +288,7 @@ sub merge_HASH_HASH_NORMAL {
                          'DELETE');
                 push @kb, [$_, $2, $m];
             } else {
-                next if $a->{"!$_"};
+                next if exists($a->{"!$_"}) or ($assume_left_keep && exists($a->{$_}));
                 push @kb, [$_, $_, $config->{default_merge_mode}];
             }
         }
@@ -295,7 +300,7 @@ sub merge_HASH_HASH_NORMAL {
 
     }
 
-    #use Data::Dumper; $Data::Dumper::Indent=0; print Dumper(\@ka), " ", Dumper(\@kb), "\n";
+    #use Data::Dumper; $Data::Dumper::Indent=0; print "\@ka => ", Dumper(\@ka), " \@kb => ", Dumper(\@kb), "\n";
 
     my $res = {};
     my $backup = {};
@@ -406,10 +411,12 @@ sub merge_HASH_HASH_SUBTRACT {
 #    undef;
 #}
 
-#sub merge_ANY_ANY_KEEP {
-#    my ($self, $a, $b) = @_;
-#    $a;
-#}
+sub merge_ANY_ANY_KEEP {
+    my ($self, $a, $b) = @_;
+    $a;
+}
+
+sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 
 =head1 CONFIG
 
@@ -508,7 +515,7 @@ would be:
     groups => undef,
    }
 
-=head2 default_merge_mode => 'NORMAL' | 'ADD' | 'CONCAT' | 'SUBTRACT' | 'DELETE'
+=head2 default_merge_mode => 'NORMAL' | 'ADD' | 'CONCAT' | 'SUBTRACT' | 'DELETE' | 'KEEP'
 
 Default is 'NORMAL'.
 
@@ -527,14 +534,14 @@ When setting default_merge_mode to ADD:
 Default it 0.
 
 If set to 1, then merge prefixes on hash keys on the left is kept (not
-stripped). Currently only '*' prefix on the left side is known. This is useful
-if the merge result is to be merged again and we still want to preserve the left
-side.
+stripped). Currently only '!' prefix on the left side is preserved. This is
+useful if the merge result is to be merged again and we still want to preserve
+the left side.
 
 Example:
 
- prefix_merge({'*a'=>1}, {a=>2}); # {a=>1}
- prefix_merge({'*a'=>1}, {a=>2}, {preserve_prefix=>1}); # {'*a'=>1}
+ prefix_merge({'!a'=>1}, {a=>2}); # {a=>1}
+ prefix_merge({'!a'=>1}, {a=>2}, {preserve_prefix=>1}); # {'!a'=>1}
 
 =head1 SEE ALSO
 

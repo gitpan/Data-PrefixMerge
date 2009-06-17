@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 17;
+use Test::More tests => 19;
 
 use lib './t';
 require 'testlib.pm';
@@ -44,6 +44,15 @@ is_deeply(prefix_merge([5, 6, 7], [8, 9], {recurse_array=>1})->{backup}, [5, 6],
 
 $dm = Data::PrefixMerge->new;
 $dm->config->{preserve_prefix} = 0;
-merge_is({'!a'=>1}, {a=>2}, {'a'=>1}, 'preserve_prefix 1', $dm);
+merge_is({'!a'=>1, '*b'=>1}, {a=>2, b=>2}, {a=>1, b=>2}, 'preserve_prefix 1', $dm);
 $dm->config->{preserve_prefix} = 1;
-merge_is({'!a'=>1}, {a=>2}, {'!a'=>1}, 'preserve_prefix 2', $dm);
+merge_is({'!a'=>1, '*b'=>1}, {a=>2, b=>2}, {'!a'=>1, 'b'=>2}, 'preserve_prefix 2', $dm);
+
+merge_is({'**a'=>1, '*+a'=>2, '*.a'=> 3, '*-a'=> 4, '*!a'=> 5},
+         {'**a'=>6, '++a'=>7, '..a'=> 8, '--a'=> 9, '!!a'=>10},
+         { '*a'=>6,  '+a'=>9,  '.a'=>38,  '-a'=>-5, },
+         'hash key has prefix 1');
+merge_is({'!*a'=>1, '!+a'=>2, '!.a'=> 3, '!-a'=> 4, '!!a'=> 5},
+         {'**a'=>6, '++a'=>7, '..a'=> 8, '--a'=> 9, '!!a'=>10},
+         { '*a'=>1,  '+a'=>2,  '.a'=> 3,  '-a'=> 4,  '!a'=> 5},
+         'hash key has prefix 2');
