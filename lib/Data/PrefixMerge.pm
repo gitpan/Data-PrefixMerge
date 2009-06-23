@@ -13,11 +13,11 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-Version 0.04
+Version 0.05
 
 =cut
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 
 =head1 SYNOPSIS
@@ -87,12 +87,21 @@ Subtractive merge on hashes is not defined.
 
  prefix_merge({x=>WHATEVER}, {"!x"=>WHATEVER}); # {}
 
-=head2 KEEP ('!' prefix on the left side)
+=head2 KEEP ('^' prefix on the left/right side)
 
-If you add '!' prefix on the left side, it will be protected from
+If you add '^' prefix on the left side, it will be protected from
 being replaced/deleted/etc.
 
- prefix_merge({'!x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
+ prefix_merge({'^x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
+
+For hashes, KEEP mode means that all keys on the left side will not be
+replaced/modified/deleted, *but* you can still add more keys from the
+right side hash.
+
+ prefix_merge({a=>1, b=>2, c=>3},
+              {a=>4, '^c'=>1, d=>5},
+              'KEEP');
+            # {a=>1, b=>2, c=>3, d=>5}
 
 =head2
 
@@ -147,7 +156,7 @@ sub BUILD {
             parse_hash_key_prefix => 1,
             wanted_path => undef,
             default_merge_mode => 'NORMAL',
-            preserve_prefix => 0,
+            preserve_keep_prefix => 0,
 
             # unimplemented
             #parse_hash_option_key => 1, # XXX or event
@@ -251,6 +260,7 @@ sub merge_HASH_HASH_NORMAL {
     my (@ka, @kb); # ([key in data, unprefixed key, mode], ...)
     if ($config->{parse_hash_key_prefix}) {
         my $sortsub = sub {
+            (($b =~ /^\^/) <=> ($a =~ /^\^/)) ||
             (($b =~ /^\*/) <=> ($a =~ /^\*/)) ||
             (($b =~ /^-/) <=> ($a =~ /^-/)) ||
             (($b =~ /^\+/) <=> ($a =~ /^\+/)) ||
@@ -259,36 +269,41 @@ sub merge_HASH_HASH_NORMAL {
             $a cmp $b
         };
         for (sort $sortsub keys %$a) {
-            if (/^\!(.+)/) {
+            if (/^\^(.+)/) {
                 if (exists($a->{$1}) || exists($a->{"*$1"})) {
-                    $self->error("Key conflict in left side: $_ and $1/*$1");
+                    $self->error("Key conflict on left side: $_ and $1/*$1");
                     return;
                 }
-                push @ka, [$_, ($config->{preserve_prefix} ? $_ : $1)];
+                push @ka, [$_, ($config->{preserve_keep_prefix} ? $_ : $1)];
             } elsif (/^\*(.+)/) {
-                if (exists($a->{$1}) || exists($a->{"!$1"})) {
-                    $self->error("Key conflict in left side: $_ and $1/!$1");
+                if (exists($a->{$1}) || exists($a->{"^$1"})) {
+                    $self->error("Key conflict on left side: $_ and $1/^$1");
                     return;
                 }
                 push @ka, [$_, $1];
-            } elsif (/^([+.-])(.+)/) {
+            } elsif (/^([+.!-])(.+)/) {
                 $self->error("Left side must not have prefix $1: $2");
                 return;
+            } elsif ($assume_left_keep && $config->{preserve_keep_prefix}) {
+                $a->{"^$_"} = $a->{$_};
+                delete $a->{$_};
+                push @ka, ["^$_", $_];
             } else {
                 push @ka, [$_, $_];
             }
         }
         for (sort $sortsub keys %$b) {
-            if (/^([*+!.-])(.+)/) {
-                next if exists($a->{"!$2"}) or ($assume_left_keep && exists($a->{$2}));
+            if (/^([*+!.^-])(.+)/) {
+                next if exists($a->{"^$2"}) or ($assume_left_keep && exists($a->{$2}));
                 my $m = ($1 eq '*' ? 'NORMAL' :
                          $1 eq '+' ? 'ADD' :
                          $1 eq '.' ? 'CONCAT' :
                          $1 eq '-' ? 'SUBTRACT' :
+                         $1 eq '^' ? 'KEEPRIGHT' :
                          'DELETE');
                 push @kb, [$_, $2, $m];
             } else {
-                next if exists($a->{"!$_"}) or ($assume_left_keep && exists($a->{$_}));
+                next if exists($a->{"^$_"}) or ($assume_left_keep && exists($a->{$_}));
                 push @kb, [$_, $_, $config->{default_merge_mode}];
             }
         }
@@ -305,9 +320,11 @@ sub merge_HASH_HASH_NORMAL {
     my $res = {};
     my $backup = {};
     for (@ka) {
-        $res->{$_->[1]} = $a->{$_->[0]};
+        my $nk = $assume_left_keep && $config->{preserve_keep_prefix}? "^$_->[1]" : $_->[1];
+        $res->{$nk} = $a->{$_->[0]};
     }
     for (@kb) {
+        my $nk = $_->[2] eq 'KEEPRIGHT' && $config->{preserve_keep_prefix}? "^$_->[1]" : $_->[1];
         if (exists $res->{$_->[1]}) {
             $backup->{$_->[1]} = $res->{$_->[1]};
             push @{ $self->path }, $_->[1];
@@ -315,12 +332,13 @@ sub merge_HASH_HASH_NORMAL {
                 delete $res->{$_->[1]};
             } else {
                 my $backup2;
-                ($res->{$_->[1]}, $backup2) = $self->_merge($res->{$_->[1]}, $b->{$_->[0]}, $_->[2]);
+                ($res->{$nk}, $backup2) = $self->_merge($res->{$_->[1]}, $b->{$_->[0]}, $_->[2]);
+                delete $res->{$_->[1]} if $_->[1] ne $nk;
             }
             pop @{ $self->path };
             return $res if $self->error;
         } else {
-            $res->{$_->[1]} = $b->{$_->[0]} unless $_->[2] eq 'DELETE';
+            $res->{$nk} = $b->{$_->[0]} unless $_->[2] eq 'DELETE';
         }
     }
     ($res, $backup);
@@ -413,7 +431,14 @@ sub merge_HASH_HASH_SUBTRACT {
 
 sub merge_ANY_ANY_KEEP {
     my ($self, $a, $b) = @_;
+    #print "merge_ANY_ANY_KEEP($a, $b)\n";
     $a;
+}
+
+sub merge_ANY_ANY_KEEPRIGHT {
+    my ($self, $a, $b) = @_;
+    #print "merge_ANY_ANY_KEEPRIGHT($a, $b)\n";
+    $b;
 }
 
 sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
@@ -529,19 +554,19 @@ When setting default_merge_mode to ADD:
 
  prefix_merge(3, 4); # 7
 
-=head2 preserve_prefix => 0|1
+=head2 preserve_keep_prefix => 0|1
 
 Default it 0.
 
-If set to 1, then merge prefixes on hash keys on the left is kept (not
-stripped). Currently only '!' prefix on the left side is preserved. This is
-useful if the merge result is to be merged again and we still want to preserve
-the left side.
+If set to 1, then key KEEP merge prefixes on hash keys (^) will be
+preserved. This is useful if we want to do another merge on the
+result.
 
 Example:
 
- prefix_merge({'!a'=>1}, {a=>2}); # {a=>1}
- prefix_merge({'!a'=>1}, {a=>2}, {preserve_prefix=>1}); # {'!a'=>1}
+ prefix_merge({'^a'=>1}, {a=>2}); # {a=>1}
+ prefix_merge({'a'=>1}, {a=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
+ prefix_merge({'a'=>1}, {'^a'=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
 
 =head1 SEE ALSO
 

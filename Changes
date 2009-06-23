@@ -1,5 +1,11 @@
 Revision history for Data-PrefixMerge
 
+0.05    2009-06-22
+        - yet another incompatible change: keep prefix now uses '^' instead of
+          '!' on the left side. this allows keep mode on the right side. on a
+          series of merge we can now introduce keep mode at one point (not just
+          on the first hash) and then preserve that keep mode afterwards.
+
 0.04    2009-06-17
         - support KEEP merge for hash & hash
 
