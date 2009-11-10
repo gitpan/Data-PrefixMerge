@@ -1,6 +1,7 @@
 package Data::PrefixMerge;
 
 use Moose;
+use Data::PrefixMerge::Config;
 use vars qw(@ISA @EXPORT);
 use Data::Compare;
 require Exporter;
@@ -13,11 +14,11 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-Version 0.05
+Version 0.06
 
 =cut
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 
 =head1 SYNOPSIS
@@ -53,7 +54,7 @@ in hash keys. Merge prefixes instruct how the merge should be done
 (merging mode).
 
 Merging prefixes can also be turned off via configuration (see
-B<CONFIG> section), in which Data::PrefixMerge will behave like most
+L<Data::PrefixMerge::Config>), in which Data::PrefixMerge will behave like most
 other merge modules.
 
 =head1 MERGING MODES
@@ -116,12 +117,7 @@ method for default.
 
 sub prefix_merge {
     my ($a, $b, $config_vars) = @_;
-    my $merger = __PACKAGE__->new();
-    if ($config_vars) {
-        for (keys %$config_vars) {
-            $merger->config->{$_} = $config_vars->{$_};
-        }
-    }
+    my $merger = __PACKAGE__->new(config => $config_vars);
     $merger->merge($a, $b);
 }
 
@@ -131,7 +127,7 @@ sub prefix_merge {
 
 =head2 config
 
-A hashref for config. See B<CONFIG> section below.
+A hashref for config. See L<Data::PrefixMerge::Config>.
 
 =cut
 
@@ -148,21 +144,18 @@ has result => (is => "rw");
 =cut
 
 sub BUILD {
-    my $self = shift;
-    unless ($self->config) {
-        $self->config({
-            recurse_hash => 1,
-            recurse_array => 0,
-            parse_hash_key_prefix => 1,
-            wanted_path => undef,
-            default_merge_mode => 'NORMAL',
-            preserve_keep_prefix => 0,
+    my ($self, $args) = @_;
 
-            # unimplemented
-            #parse_hash_option_key => 1, # XXX or event
-            #clone => 0,
-        });
+    if ($self->config) {
+        # some sanity checks
+        my $is_hashref = ref($self->config) eq 'HASH';
+        die "config must be a hashref or a Data::PrefixMerge::Config" unless
+            $is_hashref || UNIVERSAL::isa("Data::PrefixMerge::Config");
+        $self->config(Data::PrefixMerge::Config->new(%{ $self->config })) if $is_hashref;
+    } else {
+        $self->config(Data::PrefixMerge::Config->new);
     }
+
     # XXX load default plugins
 }
 
@@ -443,136 +436,14 @@ sub merge_ANY_ANY_KEEPRIGHT {
 
 sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 
-=head1 CONFIG
-
-You can set config like this:
-
- $merger->config->{CONFIGVAR} = 'VALUE';
-
-Available config variables:
-
-=head2 recurse_hash => 0 or 1
-
-Whether to recursively merge hash. Default is 1.
-
-With recurse_hash set to 1, hashes will be recursively merged:
-
- prefix_merge({h=>{a=>1}}, {h=>{b=>1}}); # {h=>{a=>1, b=>1}}
-
-With recurse_hash set to 0, hashes on the left side will just be
-replaced with hashes on the right side:
-
- prefix_merge({h=>{a=>1}}, {h=>{b=>1}}); # {h=>{b=>1}}
-
-=head2 recurse_array => 0 or 1
-
-Whether to recursively merge hash. Default is 0.
-
-With recurse_array set to 1, arrays will be recursively merged:
-
- prefix_merge([1, 1], [2]); # [2, 1]
-
-With recurse_array set to 0, array on the left side will just be
-replaced with array on the right side:
-
- prefix_merge([1, 1], [2]); # [2]
-
-=head2 parse_hash_key_prefix => 0 or 1
-
-Whether to parse merge prefix for in hash keys. Default is 1. If you
-set this to 0, merging behaviour is similar to most other nested merge
-modules.
-
-With parse_hash_key_prefix set to 1:
-
- prefix_merge({a=>1}, {"+a"=>2}); # {a=>3}
-
-With parse_hash_key_prefix set to 0:
-
- prefix_merge({a=>1}, {"+a"=>2}); # {a=>1, "+a"=>2}
-
-=head2 wanted_path => ARRAYREF
-
-Default is undef. If you set this, merging is only done to the
-specified "branch". Useful to save time/storage when merging large
-hash "trees" while you only want a certain branch of the trees
-(e.g. resolving just a config variable from several config hashes).
-
-Example:
-
- prefix_merge(
-   {
-    user => {
-      steven => { quota => 100, admin => 1 },
-      tommie => { quota =>  50, admin => 0 },
-      jimmy  => { quota => 150, admin => 0 },
-    },
-    groups => [qw/admin staff/],
-   },
-   {
-    user => {
-      steven => { quota => 1000 },
-    }
-   }
- );
-
-With wanted_path unset, the result would be:
-
-   {
-    user => {
-      steven => { quota => 1000, admin => 1 },
-      tommie => { quota =>   50, admin => 0 },
-      jimmy  => { quota =>  150, admin => 0 },
-    }
-    groups => [qw/admin staff/],
-   }
-
-With wanted_path set to ["user", "steven", "quota"] (in other words,
-you're saying that you'll be disregarding other branches), the result
-would be:
-
-   {
-    user => {
-      steven => { quota => 1000, admin => undef },
-      tommie => undef,
-      jimmy  => undef,
-    }
-    groups => undef,
-   }
-
-=head2 default_merge_mode => 'NORMAL' | 'ADD' | 'CONCAT' | 'SUBTRACT' | 'DELETE' | 'KEEP'
-
-Default is 'NORMAL'.
-
-Example:
-
-When setting default_merge_mode to NORMAL (DEFAULT):
-
- prefix_merge(3, 4); # 4
-
-When setting default_merge_mode to ADD:
-
- prefix_merge(3, 4); # 7
-
-=head2 preserve_keep_prefix => 0|1
-
-Default it 0.
-
-If set to 1, then key KEEP merge prefixes on hash keys (^) will be
-preserved. This is useful if we want to do another merge on the
-result.
-
-Example:
-
- prefix_merge({'^a'=>1}, {a=>2}); # {a=>1}
- prefix_merge({'a'=>1}, {a=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
- prefix_merge({'a'=>1}, {'^a'=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
-
 =head1 SEE ALSO
 
 L<Data::Merger> (from Data-Utilities)
+
 L<Hash::Merge>
+
 L<Hash::Merge::Simple>
+
 L<Data::Schema> (a module that uses this module)
 
 =head1 AUTHOR

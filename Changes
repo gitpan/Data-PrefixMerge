@@ -1,5 +1,10 @@
 Revision history for Data-PrefixMerge
 
+0.06    2009-11-08
+        - INCOMPATIBLE CHANGE: getting and setting config is now done via
+          $merger->config->confname instead of $merger->config->{confname} to
+          catch config name typos at compile time.
+
 0.05    2009-06-22
         - yet another incompatible change: keep prefix now uses '^' instead of
           '!' on the left side. this allows keep mode on the right side. on a

@@ -25,7 +25,7 @@ merge_is(undef, [2], [2], 'array 5');
 merge_is([{a=>1}], [{b=>2}], [{b=>2}], 'array 6');
 
 my $dm = Data::PrefixMerge->new;
-$dm->config->recurse_array(1);
+$dm->config->{recurse_array} = 1;
 merge_is([{a=>1}], [{b=>2}], [{a=>1, b=>2}], 'recursive array 1', $dm);
 
 merge_is({a=>11, b=>12}, {b=>22, c=>23}, {a=>11, b=>22, c=>23}, 'hash 1a');
@@ -38,7 +38,7 @@ merge_is({a=>1}, 1, 1, 'hash 6');
 merge_is(1, {a=>1}, {a=>1}, 'hash 7');
 
 $dm = Data::PrefixMerge->new;
-$dm->config->recurse_hash(0);
+$dm->config->{recurse_hash} = 0;
 merge_is({a=>11, b=>12}, {b=>22, c=>23}, {b=>22, c=>23}, 'recurse hash 1', $dm);
 
 merge_is({i=>1, h=>{i=>1, j=>1}, j=>2},
