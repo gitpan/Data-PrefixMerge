@@ -1,8 +1,12 @@
 Changes
+LICENSE
 MANIFEST
+META.yml
 Makefile.PL
 README
+dist.ini
 lib/Data/PrefixMerge.pm
+lib/Data/PrefixMerge/Config.pm
 t/00-load.t
 t/01-normal.t
 t/02-add.t
@@ -14,4 +18,6 @@ t/99-misc.t
 t/boilerplate.t
 t/pod-coverage.t
 t/pod.t
+t/release-pod-coverage.t
+t/release-pod-syntax.t
 t/testlib.pm

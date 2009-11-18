@@ -1,15 +1,22 @@
-use inc::Module::Install;
 
-name     'Data-PrefixMerge';
-all_from 'lib/Data/PrefixMerge.pm';
-author   'Steven Haryanto <steven@masterweb.net>';
-license  'perl';
+use strict;
+use warnings;
 
-build_requires 'Test::More';
+use ExtUtils::MakeMaker;
 
-requires 'Moose';
-requires 'Data::Compare';
+WriteMakefile(
+  DISTNAME  => 'Data-PrefixMerge',
+  NAME      => 'Data::PrefixMerge',
+  AUTHOR    => "Steven\ Haryanto\ \<stevenharyanto\@gmail\.com\>",
+  ABSTRACT  => "Merge\ two\ nested\ data\ structures\,\ with\ merging\ mode\ prefix\ on\ hash\ keys",
+  VERSION   => '0.07',
+  EXE_FILES => [ qw() ],
+  (eval { ExtUtils::MakeMaker->VERSION(6.31) } ? (LICENSE => 'perl') : ()),
+  PREREQ_PM    => {
+    "Test::More" => '0',
+    "Data::Compare" => '0',
+    "Moose" => '0',
+  },
+  test => {TESTS => 't/*.t'}
+);
 
-auto_install;
-
-WriteAll;

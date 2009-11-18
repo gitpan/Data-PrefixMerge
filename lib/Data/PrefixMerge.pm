@@ -1,119 +1,17 @@
 package Data::PrefixMerge;
+our $VERSION = '0.07';
+
+
+# ABSTRACT: Merge two nested data structures, with merging mode prefix on hash keys
+
 
 use Moose;
 use Data::PrefixMerge::Config;
-use vars qw(@ISA @EXPORT);
 use Data::Compare;
 require Exporter;
-@ISA = qw(Exporter);
-@EXPORT = qw(prefix_merge);
+our @ISA = qw(Exporter);
+our @EXPORT = qw(prefix_merge);
 
-=head1 NAME
-
-Data::PrefixMerge - Merge two nested data structures, with merging mode prefix on hash keys
-
-=head1 VERSION
-
-Version 0.06
-
-=cut
-
-our $VERSION = '0.06';
-
-
-=head1 SYNOPSIS
-
-    # OO interface
-
-    use Data::PrefixMerge;
-    my $merger = Data::PrefixMerge->new();
-
-    my $hash1 = { a=>1,    c=>1, d=>{  da =>[1]} };
-    my $hash2 = { a=>2, "-c"=>2, d=>{"+da"=>[2]} };
-
-    my $res = $merger->merge($hash1, $hash2);
-    die $res->{error} if $res->{error};
-    print $res->{result}; # { a=>2, c=>-1, d => { da=>[1,2] } }
-
-
-    # procedural interface
-
-    use Data::PrefixMerge;
-    my $res = prefix_merge($hash1, $hash2);
-    my $hash1 = { a=>1,    c=>1, d=>{  da =>[1]} };
-    my $hash2 = { a=>2, "+c"=>2, d=>{"+da"=>[2]} };
-    die $res->{error} if $res->{error};
-    print $res->{result}; # { a=>2, c=>-1, d => { da=>[1,2] } }
-
-=head1 DESCRIPTION
-
-There are already several modules on CPAN to do recursive data
-structure merging. The main difference between those modules and
-Data::PrefixMerge is that Data::PrefixMerge supports "merge prefixes"
-in hash keys. Merge prefixes instruct how the merge should be done
-(merging mode).
-
-Merging prefixes can also be turned off via configuration (see
-L<Data::PrefixMerge::Config>), in which Data::PrefixMerge will behave like most
-other merge modules.
-
-=head1 MERGING MODES
-
-=head2 NORMAL (optional '*' prefix on left/right side)
-
- prefix_merge({ a=>11, b=>12},  {b=>22, c=>23}); # {a=>11, b=>22, c=>23}
- prefix_merge({*a=>11, b=>12}, {*b=>22, c=>23}); # {a=>11, b=>22, c=>23}
-
-=head2 ADD ('+' prefix on the right side)
-
- prefix_merge({i=>3}, {"+i"=>4, "+j"=>1}); # {i=>7, j=>1}
- prefix_merge({a=>[1]}, {"+a"=>[2, 3]}); # {a=>[1, 2, 3]}
-
-Additive merge on hashes will be treated like a normal merge.
-
-=head2 CONCAT ('.' prefix on the right side)
-
- prefix_merge({i=>3}, {".i"=>4, ".j"=>1}); # {i=>34, j=>1}
-
-Concative merge on arrays will be treated like additive merge.
-
-=head2 SUBTRACT ('-' prefix on the right side)
-
- prefix_merge({i=>3}, {"-i"=>4}); # {i=>-1}
- prefix_merge({a=>["a","b","c"]}, {"-a"=>["b"]}); # {a=>["a","c"]}
-
-Subtractive merge on hashes is not defined.
-
-=head2 DELETE ('!' prefix on the right side)
-
- prefix_merge({x=>WHATEVER}, {"!x"=>WHATEVER}); # {}
-
-=head2 KEEP ('^' prefix on the left/right side)
-
-If you add '^' prefix on the left side, it will be protected from
-being replaced/deleted/etc.
-
- prefix_merge({'^x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
-
-For hashes, KEEP mode means that all keys on the left side will not be
-replaced/modified/deleted, *but* you can still add more keys from the
-right side hash.
-
- prefix_merge({a=>1, b=>2, c=>3},
-              {a=>4, '^c'=>1, d=>5},
-              'KEEP');
-            # {a=>1, b=>2, c=>3, d=>5}
-
-=head2
-
-=head1 FUNCTIONS
-
-=head2 prefix_merge($a, $b[, $config_vars])
-
-A non-OO wrapper for merge() method. Exported by default. See C<merge>
-method for default.
-
-=cut
 
 sub prefix_merge {
     my ($a, $b, $config_vars) = @_;
@@ -121,15 +19,7 @@ sub prefix_merge {
     $merger->merge($a, $b);
 }
 
-=head1 ATTRIBUTES
 
-=cut
-
-=head2 config
-
-A hashref for config. See L<Data::PrefixMerge::Config>.
-
-=cut
 
 has config => (is => "rw");
 #has plugins => (is => "rw");
@@ -139,9 +29,6 @@ has path => (is => "rw");
 has error => (is => "rw");
 has result => (is => "rw");
 
-=head1 METHODS
-
-=cut
 
 sub BUILD {
     my ($self, $args) = @_;
@@ -159,15 +46,6 @@ sub BUILD {
     # XXX load default plugins
 }
 
-=head2 merge($a, $b)
-
-Merge two nested data structures. Returns the result hash: {
-success=>0|1, error=>'...', result=>..., backup=>... }. The 'error'
-key is set to contain an error message if there is an error. The merge
-result is in the 'result' key. The 'backup' key contains replaced
-elements from the original hash/array.
-
-=cut
 
 sub merge {
     my ($self, $a, $b) = @_;
@@ -436,6 +314,129 @@ sub merge_ANY_ANY_KEEPRIGHT {
 
 sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 
+
+__PACKAGE__->meta->make_immutable;
+1;
+
+__END__
+=pod
+
+=head1 NAME
+
+Data::PrefixMerge - Merge two nested data structures, with merging mode prefix on hash keys
+
+=head1 VERSION
+
+version 0.07
+
+=head1 SYNOPSIS
+
+    # OO interface
+
+    use Data::PrefixMerge;
+    my $merger = Data::PrefixMerge->new();
+
+    my $hash1 = { a=>1,    c=>1, d=>{  da =>[1]} };
+    my $hash2 = { a=>2, "-c"=>2, d=>{"+da"=>[2]} };
+
+    my $res = $merger->merge($hash1, $hash2);
+    die $res->{error} if $res->{error};
+    print $res->{result}; # { a=>2, c=>-1, d => { da=>[1,2] } }
+
+
+    # procedural interface
+
+    use Data::PrefixMerge;
+    my $res = prefix_merge($hash1, $hash2);
+    my $hash1 = { a=>1,    c=>1, d=>{  da =>[1]} };
+    my $hash2 = { a=>2, "+c"=>2, d=>{"+da"=>[2]} };
+    die $res->{error} if $res->{error};
+    print $res->{result}; # { a=>2, c=>-1, d => { da=>[1,2] } }
+
+=head1 DESCRIPTION
+
+There are already several modules on CPAN to do recursive data
+structure merging. The main difference between those modules and
+Data::PrefixMerge is that Data::PrefixMerge supports "merge prefixes"
+in hash keys. Merge prefixes instruct how the merge should be done
+(merging mode).
+
+Merging prefixes can also be turned off via configuration (see
+L<Data::PrefixMerge::Config>), in which Data::PrefixMerge will behave like most
+other merge modules.
+
+=head1 MERGING MODES
+
+=head2 NORMAL (optional '*' prefix on left/right side)
+
+ prefix_merge({ a=>11, b=>12},  {b=>22, c=>23}); # {a=>11, b=>22, c=>23}
+ prefix_merge({*a=>11, b=>12}, {*b=>22, c=>23}); # {a=>11, b=>22, c=>23}
+
+=head2 ADD ('+' prefix on the right side)
+
+ prefix_merge({i=>3}, {"+i"=>4, "+j"=>1}); # {i=>7, j=>1}
+ prefix_merge({a=>[1]}, {"+a"=>[2, 3]}); # {a=>[1, 2, 3]}
+
+Additive merge on hashes will be treated like a normal merge.
+
+=head2 CONCAT ('.' prefix on the right side)
+
+ prefix_merge({i=>3}, {".i"=>4, ".j"=>1}); # {i=>34, j=>1}
+
+Concative merge on arrays will be treated like additive merge.
+
+=head2 SUBTRACT ('-' prefix on the right side)
+
+ prefix_merge({i=>3}, {"-i"=>4}); # {i=>-1}
+ prefix_merge({a=>["a","b","c"]}, {"-a"=>["b"]}); # {a=>["a","c"]}
+
+Subtractive merge on hashes is not defined.
+
+=head2 DELETE ('!' prefix on the right side)
+
+ prefix_merge({x=>WHATEVER}, {"!x"=>WHATEVER}); # {}
+
+=head2 KEEP ('^' prefix on the left/right side)
+
+If you add '^' prefix on the left side, it will be protected from
+being replaced/deleted/etc.
+
+ prefix_merge({'^x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
+
+For hashes, KEEP mode means that all keys on the left side will not be
+replaced/modified/deleted, *but* you can still add more keys from the
+right side hash.
+
+ prefix_merge({a=>1, b=>2, c=>3},
+              {a=>4, '^c'=>1, d=>5},
+              'KEEP');
+            # {a=>1, b=>2, c=>3, d=>5}
+
+=head2
+
+=head1 FUNCTIONS
+
+=head2 prefix_merge($a, $b[, $config_vars])
+
+A non-OO wrapper for merge() method. Exported by default. See C<merge>
+method for more details.
+
+=head1 ATTRIBUTES
+
+=head2 config
+
+A hashref for config. See L<Data::PrefixMerge::Config>.
+
+=head1 METHODS
+
+=head2 merge($a, $b)
+
+Merge two nested data structures. Returns the result hash: {
+success=>0|1, error=>'...', result=>..., backup=>... }. The 'error'
+key is set to contain an error message if there is an error. The merge
+result is in the 'result' key. The 'backup' key contains replaced
+elements from the original hash/array.
+
 =head1 SEE ALSO
 
 L<Data::Merger> (from Data-Utilities)
@@ -445,10 +446,6 @@ L<Hash::Merge>
 L<Hash::Merge::Simple>
 
 L<Data::Schema> (a module that uses this module)
-
-=head1 AUTHOR
-
-Steven Haryanto, C<< <steven at masterweb.net> >>
 
 =head1 BUGS
 
@@ -486,19 +483,16 @@ L<http://search.cpan.org/dist/Data-PrefixMerge/>
 
 =back
 
+=head1 AUTHOR
 
-=head1 ACKNOWLEDGEMENTS
+  Steven Haryanto <stevenharyanto@gmail.com>
 
+=head1 COPYRIGHT AND LICENSE
 
-=head1 COPYRIGHT & LICENSE
+This software is copyright (c) 2009 by Steven Haryanto.
 
-Copyright 2009 Steven Haryanto, all rights reserved.
-
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
-
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 
-__PACKAGE__->meta->make_immutable;
-1;

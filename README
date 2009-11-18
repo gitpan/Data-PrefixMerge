@@ -1,80 +1,146 @@
-Data-PrefixMerge
+NAME
+    Data::PrefixMerge - Merge two nested data structures, with merging mode
+    prefix on hash keys
 
-Merge two nested data structures recursively with merging mode prefix
-on hash keys.
+VERSION
+    version 0.07
 
-Some examples:
+SYNOPSIS
+        # OO interface
 
- # normal (replace) mode
- prefix_merge({a=>11, b=>12       },
-              {       b=>22, *c=>23});
- # result:    {a=>11, b=>22, c=>23}
+        use Data::PrefixMerge;
+        my $merger = Data::PrefixMerge->new();
 
- # normal merging recursively merge hashes
- prefix_merge({a=>[11, 12], b=>2,  h=>{ i=>11, j=>{k=>11},        k=>12 }},
-              {a=>21,     , b=>[], h=>{ i=>21, j=>{l=>21}               }});
- # result:    {a=>21,       b=>[], h=>{ i=>21, j=>{k=>11, l=>21}, k=>12 }
+        my $hash1 = { a=>1,    c=>1, d=>{  da =>[1]} };
+        my $hash2 = { a=>2, "-c"=>2, d=>{"+da"=>[2]} };
 
- # delete mode
- prefix_merge({  a =>1,       b =>2, c=>3 },
-              {'!a'=>undef, '!b'=>2       });
- # result:    {                      c=>3 }
-
- # additive mode
- prefix_merge({  i =>1,   a =>[1]},
-              {'+i'=>2, '+a'=>[1,2]});
- # result:    {  i =>3,   a =>[1,1,2]}
-
- # concat mode
- prefix_merge({  i =>1 ,   a =>[1]},
-              {'.i'=>2 , '.a'=>[1,2]});
- # result:    {  i =>12,   a =>[1,1,2]}
-
- # subtract mode
- prefix_merge({  i =>1,   a =>[1,2,3]},
-              {'-i'=>2, '-a'=>[2]});
- # result:    {  i =>-1,  a =>[1,3]}
-
- # keep mode
- prefix_merge({'^i'=>1},
-              {  i =>2},
- # result:    {  i =>1}
+        my $res = $merger->merge($hash1, $hash2);
+        die $res->{error} if $res->{error};
+        print $res->{result}; # { a=>2, c=>-1, d => { da=>[1,2] } }
 
 
-INSTALLATION
+        # procedural interface
 
-To install this module, run the following commands:
+        use Data::PrefixMerge;
+        my $res = prefix_merge($hash1, $hash2);
+        my $hash1 = { a=>1,    c=>1, d=>{  da =>[1]} };
+        my $hash2 = { a=>2, "+c"=>2, d=>{"+da"=>[2]} };
+        die $res->{error} if $res->{error};
+        print $res->{result}; # { a=>2, c=>-1, d => { da=>[1,2] } }
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+DESCRIPTION
+    There are already several modules on CPAN to do recursive data structure
+    merging. The main difference between those modules and Data::PrefixMerge
+    is that Data::PrefixMerge supports "merge prefixes" in hash keys. Merge
+    prefixes instruct how the merge should be done (merging mode).
 
-SUPPORT AND DOCUMENTATION
+    Merging prefixes can also be turned off via configuration (see
+    Data::PrefixMerge::Config), in which Data::PrefixMerge will behave like
+    most other merge modules.
 
-After installing, you can find documentation for this module with the
-perldoc command.
+MERGING MODES
+  NORMAL (optional '*' prefix on left/right side)
+     prefix_merge({ a=>11, b=>12},  {b=>22, c=>23}); # {a=>11, b=>22, c=>23}
+     prefix_merge({*a=>11, b=>12}, {*b=>22, c=>23}); # {a=>11, b=>22, c=>23}
 
-    perldoc Data::PrefixMerge
+  ADD ('+' prefix on the right side)
+     prefix_merge({i=>3}, {"+i"=>4, "+j"=>1}); # {i=>7, j=>1}
+     prefix_merge({a=>[1]}, {"+a"=>[2, 3]}); # {a=>[1, 2, 3]}
 
-You can also look for information at:
+    Additive merge on hashes will be treated like a normal merge.
 
-    RT, CPAN's request tracker
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=Data-PrefixMerge
+  CONCAT ('.' prefix on the right side)
+     prefix_merge({i=>3}, {".i"=>4, ".j"=>1}); # {i=>34, j=>1}
 
-    AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/Data-PrefixMerge
+    Concative merge on arrays will be treated like additive merge.
 
-    CPAN Ratings
-        http://cpanratings.perl.org/d/Data-PrefixMerge
+  SUBTRACT ('-' prefix on the right side)
+     prefix_merge({i=>3}, {"-i"=>4}); # {i=>-1}
+     prefix_merge({a=>["a","b","c"]}, {"-a"=>["b"]}); # {a=>["a","c"]}
 
-    Search CPAN
-        http://search.cpan.org/dist/Data-PrefixMerge/
+    Subtractive merge on hashes is not defined.
 
+  DELETE ('!' prefix on the right side)
+     prefix_merge({x=>WHATEVER}, {"!x"=>WHATEVER}); # {}
 
-COPYRIGHT AND LICENCE
+  KEEP ('^' prefix on the left/right side)
+    If you add '^' prefix on the left side, it will be protected from being
+    replaced/deleted/etc.
 
-Copyright (C) 2009 Steven Haryanto
+     prefix_merge({'^x'=>WHATEVER1}, {"x"=>WHATEVER2}); # {x=>WHATEVER1}
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+    For hashes, KEEP mode means that all keys on the left side will not be
+    replaced/modified/deleted, *but* you can still add more keys from the
+    right side hash.
+
+     prefix_merge({a=>1, b=>2, c=>3},
+                  {a=>4, '^c'=>1, d=>5},
+                  'KEEP');
+                # {a=>1, b=>2, c=>3, d=>5}
+
+  
+FUNCTIONS
+  prefix_merge($a, $b[, $config_vars])
+    A non-OO wrapper for merge() method. Exported by default. See "merge"
+    method for more details.
+
+ATTRIBUTES
+  config
+    A hashref for config. See Data::PrefixMerge::Config.
+
+METHODS
+  merge($a, $b)
+    Merge two nested data structures. Returns the result hash: {
+    success=>0|1, error=>'...', result=>..., backup=>... }. The 'error' key
+    is set to contain an error message if there is an error. The merge
+    result is in the 'result' key. The 'backup' key contains replaced
+    elements from the original hash/array.
+
+SEE ALSO
+    Data::Merger (from Data-Utilities)
+
+    Hash::Merge
+
+    Hash::Merge::Simple
+
+    Data::Schema (a module that uses this module)
+
+BUGS
+    Please report any bugs or feature requests to "bug-data-prefixmerge at
+    rt.cpan.org", or through the web interface at
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Data-PrefixMerge>. I
+    will be notified, and then you'll automatically be notified of progress
+    on your bug as I make changes.
+
+SUPPORT
+    You can find documentation for this module with the perldoc command.
+
+        perldoc Data::PrefixMerge
+
+    You can also look for information at:
+
+    *   RT: CPAN's request tracker
+
+        <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Data-PrefixMerge>
+
+    *   AnnoCPAN: Annotated CPAN documentation
+
+        <http://annocpan.org/dist/Data-PrefixMerge>
+
+    *   CPAN Ratings
+
+        <http://cpanratings.perl.org/d/Data-PrefixMerge>
+
+    *   Search CPAN
+
+        <http://search.cpan.org/dist/Data-PrefixMerge/>
+
+AUTHOR
+      Steven Haryanto <stevenharyanto@gmail.com>
+
+COPYRIGHT AND LICENSE
+    This software is copyright (c) 2009 by Steven Haryanto.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+

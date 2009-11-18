@@ -1,0 +1,15 @@
+---
+abstract: 'Merge two nested data structures, with merging mode prefix on hash keys'
+author:
+  - 'Steven Haryanto <stevenharyanto@gmail.com>'
+generated_by: 'Dist::Zilla version 1.093000'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Data-PrefixMerge
+requires:
+  Data::Compare: 0
+  Moose: 0
+  Test::More: 0
+version: 0.07

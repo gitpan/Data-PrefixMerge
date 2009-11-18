@@ -1,5 +1,8 @@
 Revision history for Data-PrefixMerge
 
+0.07    2009-11-18
+        - minor fixes
+
 0.06    2009-11-08
         - INCOMPATIBLE CHANGE: getting and setting config is now done via
           $merger->config->confname instead of $merger->config->{confname} to

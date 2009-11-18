@@ -1,10 +1,48 @@
 package Data::PrefixMerge::Config;
+our $VERSION = '0.07';
+
+
+# ABSTRACT: Data::PrefixMerge configuration
+
 
 use Moose;
+
+
+has recurse_hash => (is => 'rw', default => 1);
+
+
+has recurse_array => (is => 'rw', default => 0);
+
+
+has parse_hash_key_prefix => (is => 'rw', default => 1);
+
+
+has wanted_path => (is => 'rw');
+
+
+has default_merge_mode => (is => 'rw', default => 'NORMAL');
+
+
+has preserve_keep_prefix => (is => 'rw', default => 0);
+
+# unimplemented
+#parse_hash_option_key => 1, # XXX or event
+#clone => 0,
+
+__PACKAGE__->meta->make_immutable;
+no Moose;
+1;
+
+__END__
+=pod
 
 =head1 NAME
 
 Data::PrefixMerge::Config - Data::PrefixMerge configuration
+
+=head1 VERSION
+
+version 0.07
 
 =head1 SYNOPSIS
 
@@ -33,10 +71,6 @@ replaced with hashes on the right side:
 
  prefix_merge({h=>{a=>1}}, {h=>{b=>1}}); # {h=>{b=>1}}
 
-=cut
-
-has recurse_hash => (is => 'rw', default => 1);
-
 =head2 recurse_array => BOOL
 
 Whether to recursively merge hash. Default is 0.
@@ -49,10 +83,6 @@ With recurse_array set to 0, array on the left side will just be
 replaced with array on the right side:
 
  prefix_merge([1, 1], [2]); # [2]
-
-=cut
-
-has recurse_array => (is => 'rw', default => 0);
 
 =head2 parse_hash_key_prefix => BOOL
 
@@ -67,10 +97,6 @@ With parse_hash_key_prefix set to 1:
 With parse_hash_key_prefix set to 0:
 
  prefix_merge({a=>1}, {"+a"=>2}); # {a=>1, "+a"=>2}
-
-=cut
-
-has parse_hash_key_prefix => (is => 'rw', default => 1);
 
 =head2 wanted_path => ARRAYREF
 
@@ -121,10 +147,6 @@ would be:
     groups => undef,
    }
 
-=cut
-
-has wanted_path => (is => 'rw');
-
 =head2 default_merge_mode => 'NORMAL' | 'ADD' | 'CONCAT' | 'SUBTRACT' | 'DELETE' | 'KEEP'
 
 Default is 'NORMAL'.
@@ -138,10 +160,6 @@ When setting default_merge_mode to NORMAL (DEFAULT):
 When setting default_merge_mode to ADD:
 
  prefix_merge(3, 4); # 7
-
-=cut
-
-has default_merge_mode => (is => 'rw', default => 'NORMAL');
 
 =head2 preserve_keep_prefix => 0|1
 
@@ -157,27 +175,16 @@ Example:
  prefix_merge({'a'=>1}, {a=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
  prefix_merge({'a'=>1}, {'^a'=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
 
-=cut
-
-has preserve_keep_prefix => (is => 'rw', default => 0);
-
-# unimplemented
-#parse_hash_option_key => 1, # XXX or event
-#clone => 0,
-
 =head1 AUTHOR
 
-Steven Haryanto, C<< <steven at masterweb.net> >>
+  Steven Haryanto <stevenharyanto@gmail.com>
 
-=head1 COPYRIGHT & LICENSE
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Steven Haryanto, all rights reserved.
+This software is copyright (c) 2009 by Steven Haryanto.
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 
-__PACKAGE__->meta->make_immutable;
-no Moose;
-1;
