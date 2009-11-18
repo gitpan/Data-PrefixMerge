@@ -1,5 +1,5 @@
 package Data::PrefixMerge;
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 
 # ABSTRACT: Merge two nested data structures, with merging mode prefix on hash keys
@@ -319,9 +319,12 @@ sub remove_keep_prefixes {
     my ($self, $data) = @_;
     if (ref($data) eq 'HASH') {
         for (keys %$data) {
-            next unless s/^\^//;
-            $data->{$_} = $self->remove_keep_prefixes($data->{"^$_"});
-            delete $data->{"^$_"};
+            if (s/^\^//) {
+                $data->{$_} = $self->remove_keep_prefixes($data->{"^$_"});
+                delete $data->{"^$_"};
+            } else {
+                $data->{$_} = $self->remove_keep_prefixes($data->{$_});
+            }
         }
     } elsif (ref($data) eq 'ARRAY') {
         for (@$data) {
@@ -348,7 +351,7 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-version 0.08
+version 0.09
 
 =head1 SYNOPSIS
 
