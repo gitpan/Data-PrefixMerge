@@ -2,12 +2,12 @@
 
 use strict;
 use warnings;
-use Test::More tests => 24;
+use Test::More tests => 23;
 
 use lib './t';
 require 'testlib.pm';
 
-use_ok('Data::PrefixMerge');
+use Data::PrefixMerge;
 
 my $dm = Data::PrefixMerge->new;
 $dm->config->default_merge_mode('ADD');

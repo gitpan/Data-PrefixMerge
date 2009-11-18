@@ -2,12 +2,12 @@
 
 use strict;
 use warnings;
-use Test::More tests => 7;
+use Test::More tests => 6;
 
 use lib './t';
 require 'testlib.pm';
 
-use_ok('Data::PrefixMerge');
+use Data::PrefixMerge;
 
 merge_is({h=>{a=>1}}, {"h"=>{"!a"=>undef}}, {h=>{}}, 'hash 1a');
 merge_is({h=>{a=>1}}, {"!h"=>{!a=>undef}}, {}, 'hash 1b');

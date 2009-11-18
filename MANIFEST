@@ -14,8 +14,8 @@ t/03-concat.t
 t/04-subtract.t
 t/05-delete.t
 t/06-keep.t
+t/10-remove_keep_prefix.t
 t/99-misc.t
-t/boilerplate.t
 t/pod-coverage.t
 t/pod.t
 t/release-pod-coverage.t

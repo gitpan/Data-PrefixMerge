@@ -2,12 +2,12 @@
 
 use strict;
 use warnings;
-use Test::More tests => 26;
+use Test::More tests => 25;
 
 use lib './t';
 require 'testlib.pm';
 
-use_ok('Data::PrefixMerge');
+use Data::PrefixMerge;
 
 # procedural interface
 my $res = prefix_merge(1, 2);

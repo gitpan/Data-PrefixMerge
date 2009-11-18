@@ -3,7 +3,7 @@ NAME
     prefix on hash keys
 
 VERSION
-    version 0.07
+    version 0.08
 
 SYNOPSIS
         # OO interface
@@ -95,6 +95,15 @@ METHODS
     is set to contain an error message if there is an error. The merge
     result is in the 'result' key. The 'backup' key contains replaced
     elements from the original hash/array.
+
+  remove_keep_prefixes($data)
+    Recurse $data and remove keep prefix ("^") in hash keys.
+
+    Example: $merger->remove_keep_prefixes([1, "^a", {"^b"=>1}]); # [1,
+    "^a", {b=>1}]
+
+  remove_keep_prefix
+    Alias for remove_keep_prefixes.
 
 SEE ALSO
     Data::Merger (from Data-Utilities)

@@ -1,5 +1,5 @@
 package Data::PrefixMerge;
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 
 # ABSTRACT: Merge two nested data structures, with merging mode prefix on hash keys
@@ -315,6 +315,27 @@ sub merge_ANY_ANY_KEEPRIGHT {
 sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 
 
+sub remove_keep_prefixes {
+    my ($self, $data) = @_;
+    if (ref($data) eq 'HASH') {
+        for (keys %$data) {
+            next unless s/^\^//;
+            $data->{$_} = $self->remove_keep_prefixes($data->{"^$_"});
+            delete $data->{"^$_"};
+        }
+    } elsif (ref($data) eq 'ARRAY') {
+        for (@$data) {
+            next unless ref($_);
+            $_ = $self->remove_keep_prefixes($_);
+        }
+    }
+    $data;
+}
+
+
+sub remove_keep_prefix { remove_keep_prefixes(@_) }
+
+
 __PACKAGE__->meta->make_immutable;
 1;
 
@@ -327,7 +348,7 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-version 0.07
+version 0.08
 
 =head1 SYNOPSIS
 
@@ -436,6 +457,16 @@ success=>0|1, error=>'...', result=>..., backup=>... }. The 'error'
 key is set to contain an error message if there is an error. The merge
 result is in the 'result' key. The 'backup' key contains replaced
 elements from the original hash/array.
+
+=head2 remove_keep_prefixes($data)
+
+Recurse $data and remove keep prefix ("^") in hash keys.
+
+Example: $merger->remove_keep_prefixes([1, "^a", {"^b"=>1}]); # [1, "^a", {b=>1}]
+
+=head2 remove_keep_prefix
+
+Alias for remove_keep_prefixes.
 
 =head1 SEE ALSO
 

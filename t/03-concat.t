@@ -2,12 +2,12 @@
 
 use strict;
 use warnings;
-use Test::More tests => 13;
+use Test::More tests => 12;
 
 use lib './t';
 require 'testlib.pm';
 
-use_ok('Data::PrefixMerge');
+use Data::PrefixMerge;
 
 merge_is({i=>1}, {".i"=>3}, {i=>13}, 'int');
 
