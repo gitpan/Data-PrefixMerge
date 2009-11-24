@@ -1,5 +1,5 @@
 package Data::PrefixMerge::Config;
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 
 # ABSTRACT: Data::PrefixMerge configuration
@@ -42,7 +42,7 @@ Data::PrefixMerge::Config - Data::PrefixMerge configuration
 
 =head1 VERSION
 
-version 0.10
+version 0.11
 
 =head1 SYNOPSIS
 

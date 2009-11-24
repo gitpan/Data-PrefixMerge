@@ -1,5 +1,5 @@
 package Data::PrefixMerge;
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 
 # ABSTRACT: Merge two nested data structures, with merging mode prefix on hash keys
@@ -318,16 +318,20 @@ sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 use Data::Dumper; $Data::Dumper::Indent=0; $Data::Dumper::Terse=1; $Data::Dumper::Sortkeys=1; $Data::Dumper::Purity=0;
 
 sub remove_keep_prefixes {
-    my ($self, $data, $mem) = @_;
-    # $mem is to handle circular reference
+    my ($self, $data, $maxlevel, $_mem, $_curlevel) = @_;
+    # $_mem is to handle circular reference
+    $maxlevel //= -1;
+    $_curlevel //= 1;
 
     #print "DEBUG: remove_keep_prefixes($data = ".Dumper($data).")\n";
 
-    if (!defined($mem)) { $mem = {} }
+    return $data if $maxlevel > 0 && $_curlevel > $maxlevel;
+
+    if (!defined($_mem)) { $_mem = {} }
     my $ref = ref($data);
-    $mem->{$data}++ if $ref;
-    #print "DEBUG: mem = ".Dumper($mem)."\n";
-    goto L1 if $ref && $mem->{$data} > 1;
+    $_mem->{$data}++ if $ref;
+    #print "DEBUG: _mem = ".Dumper($_mem)."\n";
+    goto L1 if $ref && $_mem->{$data} > 1;
 
     if ($ref eq 'HASH') {
         for (keys %$data) {
@@ -335,21 +339,21 @@ sub remove_keep_prefixes {
 
             if (/^\^/) {
 		my $new = $_; $new =~ s/^\^//;
-                $data->{$new} = ($ref2 && $mem->{$data->{$_}}) ?
+                $data->{$new} = ($ref2 && $_mem->{$data->{$_}}) ?
 		    $data->{$_} :
-		    $self->remove_keep_prefixes($data->{$_}, $mem);
+		    $self->remove_keep_prefixes($data->{$_}, $maxlevel, $_mem, $_curlevel+1);
                 delete $data->{$_};
             } else {
-                $data->{$_} = $self->remove_keep_prefixes($data->{$_}, $mem)
-		    unless ($ref2 && $mem->{$data->{$_}});
+                $data->{$_} = $self->remove_keep_prefixes($data->{$_}, $maxlevel, $_mem, $_curlevel+1)
+		    unless ($ref2 && $_mem->{$data->{$_}});
             }
         }
     } elsif (ref($data) eq 'ARRAY') {
         for (@$data) {
 	    my $ref2 = ref($_);
             next unless $ref2;
-            $_ = $self->remove_keep_prefixes($_, $mem)
-		unless ($mem->{$_});
+            $_ = $self->remove_keep_prefixes($_, $maxlevel, $_mem, $_curlevel+1)
+		unless ($_mem->{$_});
         }
     }
   L1:
@@ -373,7 +377,7 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-version 0.10
+version 0.11
 
 =head1 SYNOPSIS
 
@@ -483,9 +487,10 @@ key is set to contain an error message if there is an error. The merge
 result is in the 'result' key. The 'backup' key contains replaced
 elements from the original hash/array.
 
-=head2 remove_keep_prefixes($data)
+=head2 remove_keep_prefixes($data, $maxlevel)
 
-Recurse $data and remove keep prefix ("^") in hash keys.
+Recurse $data and remove keep prefix ("^") in hash keys. $maxlevel is
+maximum depth, default is -1 (unlimited).
 
 Example: $merger->remove_keep_prefixes([1, "^a", {"^b"=>1}]); # [1, "^a", {b=>1}]
 

@@ -1,5 +1,8 @@
 Revision history for Data-PrefixMerge
 
+0.11    2009-11-23
+        - add max_level parameter to remove_keep_prefixes()
+
 0.10    2009-11-23
         - handle recursion in remove_keep_prefixes()
 
