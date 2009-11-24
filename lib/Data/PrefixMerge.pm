@@ -1,5 +1,5 @@
 package Data::PrefixMerge;
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 
 # ABSTRACT: Merge two nested data structures, with merging mode prefix on hash keys
@@ -315,23 +315,45 @@ sub merge_ANY_ANY_KEEPRIGHT {
 sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 
 
+use Data::Dumper; $Data::Dumper::Indent=0; $Data::Dumper::Terse=1; $Data::Dumper::Sortkeys=1; $Data::Dumper::Purity=0;
+
 sub remove_keep_prefixes {
-    my ($self, $data) = @_;
-    if (ref($data) eq 'HASH') {
+    my ($self, $data, $mem) = @_;
+    # $mem is to handle circular reference
+
+    #print "DEBUG: remove_keep_prefixes($data = ".Dumper($data).")\n";
+
+    if (!defined($mem)) { $mem = {} }
+    my $ref = ref($data);
+    $mem->{$data}++ if $ref;
+    #print "DEBUG: mem = ".Dumper($mem)."\n";
+    goto L1 if $ref && $mem->{$data} > 1;
+
+    if ($ref eq 'HASH') {
         for (keys %$data) {
-            if (s/^\^//) {
-                $data->{$_} = $self->remove_keep_prefixes($data->{"^$_"});
-                delete $data->{"^$_"};
+	    my $ref2 = ref($data->{$_});
+
+            if (/^\^/) {
+		my $new = $_; $new =~ s/^\^//;
+                $data->{$new} = ($ref2 && $mem->{$data->{$_}}) ?
+		    $data->{$_} :
+		    $self->remove_keep_prefixes($data->{$_}, $mem);
+                delete $data->{$_};
             } else {
-                $data->{$_} = $self->remove_keep_prefixes($data->{$_});
+                $data->{$_} = $self->remove_keep_prefixes($data->{$_}, $mem)
+		    unless ($ref2 && $mem->{$data->{$_}});
             }
         }
     } elsif (ref($data) eq 'ARRAY') {
         for (@$data) {
-            next unless ref($_);
-            $_ = $self->remove_keep_prefixes($_);
+	    my $ref2 = ref($_);
+            next unless $ref2;
+            $_ = $self->remove_keep_prefixes($_, $mem)
+		unless ($mem->{$_});
         }
     }
+  L1:
+    #print "DEBUG: result: $data = ".Dumper($data)."\n";
     $data;
 }
 
@@ -351,7 +373,7 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 

@@ -1,5 +1,8 @@
 Revision history for Data-PrefixMerge
 
+0.10    2009-11-23
+        - handle recursion in remove_keep_prefixes()
+
 0.09    2009-11-18
         - fix bug in remove_keep_prefixes()
 
