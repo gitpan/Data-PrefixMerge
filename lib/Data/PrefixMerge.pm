@@ -1,5 +1,5 @@
 package Data::PrefixMerge;
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 
 # ABSTRACT: Merge two nested data structures, with merging mode prefix on hash keys
@@ -11,6 +11,9 @@ use Data::Compare;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(prefix_merge);
+
+use Data::Dumper;
+#sub _debug_dump { my $var = shift; print "DEBUG: ", Data::Dumper->new([$var])->Indent(0)->Terse(1)->Sortkeys(1)->Purity(0)->Dump, "\n"; }
 
 
 sub prefix_merge {
@@ -37,7 +40,7 @@ sub BUILD {
         # some sanity checks
         my $is_hashref = ref($self->config) eq 'HASH';
         die "config must be a hashref or a Data::PrefixMerge::Config" unless
-            $is_hashref || UNIVERSAL::isa("Data::PrefixMerge::Config");
+            $is_hashref || UNIVERSAL::isa($self->config, "Data::PrefixMerge::Config");
         $self->config(Data::PrefixMerge::Config->new(%{ $self->config })) if $is_hashref;
     } else {
         $self->config(Data::PrefixMerge::Config->new);
@@ -67,8 +70,6 @@ sub merge {
 sub _merge {
     my ($self, $a, $b, $mode) = @_;
     my $config = $self->config;
-
-    #use Data::Dumper; $Data::Dumper::Indent=0; $Data::Dumper::Terse=1; print "_merge(".Dumper($a).", ".Dumper($b).", $mode)\n";
 
     # determine which merge methods we will call
     my (@meth, @ta, @tb);
@@ -115,6 +116,38 @@ sub _path_is_included {
     $res;
 }
 
+sub _process_options_key {
+    my ($self, $h) = @_;
+    my $k0 = $self->config->hash_options_key;
+    return unless defined($k0);
+    for my $k ("^$k0", $k0) {
+        if (exists $h->{$k}) {
+            my $opts = $h->{$k};
+            unless (defined($opts) && ref($opts) eq 'HASH') {
+                $self->error("Options key `$k` is not a hash");
+                return;
+            }
+            my $remove_keep_maxdepth;
+            my $do_remove_keep;
+            for my $o (keys %$opts) {
+                my $ov = $opts->{$o};
+                if ($o =~ /^\^?(remove_keep_prefix(?:es)?)?$/) {
+                    $do_remove_keep = $ov;
+                } elsif ($o =~ /^\^?(remove_keep_max_depth)?$/) {
+                    $remove_keep_maxdepth = $ov;
+                } else {
+                    $self->error("Invalid option `$o` in options key `$k`, ignored");
+                }
+            }
+            if ($do_remove_keep) {
+                $self->remove_keep_prefixes($h, $remove_keep_maxdepth);
+            }
+            delete $h->{$k};
+            return;
+        }
+    }
+}
+
 # normal mode
 
 sub merge_ANY_ANY_NORMAL {
@@ -131,6 +164,7 @@ sub merge_HASH_HASH_NORMAL {
     my (@ka, @kb); # ([key in data, unprefixed key, mode], ...)
     if ($config->{parse_hash_key_prefix}) {
         my $sortsub = sub {
+            my ($a, $b) = @_;
             (($b =~ /^\^/) <=> ($a =~ /^\^/)) ||
             (($b =~ /^\*/) <=> ($a =~ /^\*/)) ||
             (($b =~ /^-/) <=> ($a =~ /^-/)) ||
@@ -139,6 +173,7 @@ sub merge_HASH_HASH_NORMAL {
             (($b =~ /^!/) <=> ($a =~ /^!/)) ||
             $a cmp $b
         };
+        #_debug_dump([sort $sortsub keys %$a]);
         for (sort $sortsub keys %$a) {
             if (/^\^(.+)/) {
                 if (exists($a->{$1}) || exists($a->{"*$1"})) {
@@ -163,6 +198,7 @@ sub merge_HASH_HASH_NORMAL {
                 push @ka, [$_, $_];
             }
         }
+        #_debug_dump([sort $sortsub keys %$b]);
         for (sort $sortsub keys %$b) {
             if (/^([*+!.^-])(.+)/) {
                 next if exists($a->{"^$2"}) or ($assume_left_keep && exists($a->{$2}));
@@ -185,8 +221,6 @@ sub merge_HASH_HASH_NORMAL {
         @kb = map {[$_, $_, $config->{default_merge_mode}]} keys %$b;
 
     }
-
-    #use Data::Dumper; $Data::Dumper::Indent=0; print "\@ka => ", Dumper(\@ka), " \@kb => ", Dumper(\@kb), "\n";
 
     my $res = {};
     my $backup = {};
@@ -212,6 +246,7 @@ sub merge_HASH_HASH_NORMAL {
             $res->{$nk} = $b->{$_->[0]} unless $_->[2] eq 'DELETE';
         }
     }
+    $self->_process_options_key($res);
     ($res, $backup);
 }
 
@@ -293,6 +328,7 @@ sub merge_HASH_HASH_SUBTRACT {
     for (keys %$a) {
         $res{$_} = $a->{$_} unless exists($b->{$_});
     }
+    $self->_process_options_key(\%res);
     \%res;
 }
 
@@ -315,17 +351,15 @@ sub merge_ANY_ANY_KEEPRIGHT {
 sub merge_HASH_HASH_KEEP { merge_HASH_HASH_NORMAL(@_, 1) }
 
 
-use Data::Dumper; $Data::Dumper::Indent=0; $Data::Dumper::Terse=1; $Data::Dumper::Sortkeys=1; $Data::Dumper::Purity=0;
-
 sub remove_keep_prefixes {
-    my ($self, $data, $maxlevel, $_mem, $_curlevel) = @_;
+    my ($self, $data, $maxdepth, $_mem, $_curlevel) = @_;
     # $_mem is to handle circular reference
-    $maxlevel //= -1;
+    $maxdepth //= -1;
     $_curlevel //= 1;
 
     #print "DEBUG: remove_keep_prefixes($data = ".Dumper($data).")\n";
 
-    return $data if $maxlevel > 0 && $_curlevel > $maxlevel;
+    return $data if $maxdepth > 0 && $_curlevel > $maxdepth;
 
     if (!defined($_mem)) { $_mem = {} }
     my $ref = ref($data);
@@ -341,10 +375,10 @@ sub remove_keep_prefixes {
 		my $new = $_; $new =~ s/^\^//;
                 $data->{$new} = ($ref2 && $_mem->{$data->{$_}}) ?
 		    $data->{$_} :
-		    $self->remove_keep_prefixes($data->{$_}, $maxlevel, $_mem, $_curlevel+1);
+		    $self->remove_keep_prefixes($data->{$_}, $maxdepth, $_mem, $_curlevel+1);
                 delete $data->{$_};
             } else {
-                $data->{$_} = $self->remove_keep_prefixes($data->{$_}, $maxlevel, $_mem, $_curlevel+1)
+                $data->{$_} = $self->remove_keep_prefixes($data->{$_}, $maxdepth, $_mem, $_curlevel+1)
 		    unless ($ref2 && $_mem->{$data->{$_}});
             }
         }
@@ -352,7 +386,7 @@ sub remove_keep_prefixes {
         for (@$data) {
 	    my $ref2 = ref($_);
             next unless $ref2;
-            $_ = $self->remove_keep_prefixes($_, $maxlevel, $_mem, $_curlevel+1)
+            $_ = $self->remove_keep_prefixes($_, $maxdepth, $_mem, $_curlevel+1)
 		unless ($_mem->{$_});
         }
     }
@@ -377,7 +411,7 @@ Data::PrefixMerge - Merge two nested data structures, with merging mode prefix o
 
 =head1 VERSION
 
-version 0.11
+version 0.12
 
 =head1 SYNOPSIS
 
@@ -487,9 +521,9 @@ key is set to contain an error message if there is an error. The merge
 result is in the 'result' key. The 'backup' key contains replaced
 elements from the original hash/array.
 
-=head2 remove_keep_prefixes($data, $maxlevel)
+=head2 remove_keep_prefixes($data, $maxdepth)
 
-Recurse $data and remove keep prefix ("^") in hash keys. $maxlevel is
+Recurse $data and remove keep prefix ("^") in hash keys. $maxdepth is
 maximum depth, default is -1 (unlimited).
 
 Example: $merger->remove_keep_prefixes([1, "^a", {"^b"=>1}]); # [1, "^a", {b=>1}]

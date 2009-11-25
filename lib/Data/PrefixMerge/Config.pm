@@ -1,5 +1,5 @@
 package Data::PrefixMerge::Config;
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 
 # ABSTRACT: Data::PrefixMerge configuration
@@ -25,8 +25,10 @@ has default_merge_mode => (is => 'rw', default => 'NORMAL');
 
 has preserve_keep_prefix => (is => 'rw', default => 0);
 
+
+has hash_options_key => (is => 'rw');
+
 # unimplemented
-#parse_hash_option_key => 1, # XXX or event
 #clone => 0,
 
 __PACKAGE__->meta->make_immutable;
@@ -42,7 +44,7 @@ Data::PrefixMerge::Config - Data::PrefixMerge configuration
 
 =head1 VERSION
 
-version 0.11
+version 0.12
 
 =head1 SYNOPSIS
 
@@ -174,6 +176,37 @@ Example:
  prefix_merge({'^a'=>1}, {a=>2}); # {a=>1}
  prefix_merge({'a'=>1}, {a=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
  prefix_merge({'a'=>1}, {'^a'=>2}, {preserve_keep_prefix=>1}); # {'^a'=>1}
+
+=head2 hash_options_key => STR
+
+Default is unset. If set, then hash key with the specified name will
+become the special options key and can regulate/fine-tune merging
+behaviour on a per-hash level. After merging, that special options key
+itself will be removed.
+
+Example:
+
+ prefix_merge({'^a' => 1},
+              {a => 2},
+              {preserve_keep_prefix=>1});
+ # {'^a' => 1}
+
+ prefix_merge({'^a' => 1, 'MERGE_OPTS'=>{remove_keep_prefixes=>1}},
+              {a => 2},
+              {preserve_keep_prefix=>1, hash_options_key => 'MERGE_OPTS'});
+ # {'a' => 1}
+
+The value of the options key is a hash with these known keys (or
+option):
+
+=head3 remove_keep_prefixes => BOOL
+
+Default is false. Whether to remove keep prefixes.
+
+=head3 remove_keep_max_depth => INT
+
+Default is -1 (unlimited). Maximum depth levels of keep prefixes
+removal.
 
 =head1 AUTHOR
 

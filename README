@@ -3,7 +3,7 @@ NAME
     prefix on hash keys
 
 VERSION
-    version 0.11
+    version 0.12
 
 SYNOPSIS
         # OO interface
@@ -96,8 +96,8 @@ METHODS
     result is in the 'result' key. The 'backup' key contains replaced
     elements from the original hash/array.
 
-  remove_keep_prefixes($data, $maxlevel)
-    Recurse $data and remove keep prefix ("^") in hash keys. $maxlevel is
+  remove_keep_prefixes($data, $maxdepth)
+    Recurse $data and remove keep prefix ("^") in hash keys. $maxdepth is
     maximum depth, default is -1 (unlimited).
 
     Example: $merger->remove_keep_prefixes([1, "^a", {"^b"=>1}]); # [1,

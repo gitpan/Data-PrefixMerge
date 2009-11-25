@@ -1,5 +1,9 @@
 Revision history for Data-PrefixMerge
 
+0.12    2009-11-25
+        - new option: hash_options_key
+        - fixed random ordering bug (closes #51799)
+        
 0.11    2009-11-23
         - add max_level parameter to remove_keep_prefixes()
 
